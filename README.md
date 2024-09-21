@@ -27,4 +27,26 @@ This is an **Ecommerce Web API** built with **ASP.NET Core 8.0**, utilizing **Mo
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/username/repo-name.git
+   git clone https://github.com/IT21078996/ecommerce-web-service.git
+   ```
+
+2. Navigate to the project directory:
+   ```bash
+   cd EcommerceWebAPI
+   ```
+
+3. Build and run the project using Visual Studio or the .NET CLI:
+   ```bash
+   dotnet build
+   dotnet run
+   ```
+
+## Requirements
+
+- .NET 6.0+
+- MongoDB
+- Visual Studio 2022 (or later) or the .NET CLI
+
+## License
+
+This project is licensed under the MIT License.
