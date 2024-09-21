@@ -41,11 +41,6 @@ This is an **Ecommerce Web API** built with **ASP.NET Core 8.0**, utilizing **Mo
    dotnet run
    ```
 
-## Requirements
-
-- .NET 6.0+
-- MongoDB
-- Visual Studio 2022 (or later) or the .NET CLI
 
 ## License
 
