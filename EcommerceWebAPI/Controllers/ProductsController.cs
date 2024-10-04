@@ -35,7 +35,7 @@ namespace EcommerceWebAPI.Controllers
         {
             var filter = Builders<Product>.Filter.Eq(x => x.Id, updatedProduct.Id);
             await _products.ReplaceOneAsync(filter, updatedProduct);
-            return Ok();
+            return Ok(updatedProduct);
         }
 
         [HttpPost]

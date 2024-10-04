@@ -42,7 +42,7 @@ namespace EcommerceWebAPI.Controllers
         {
             var filter = Builders<User>.Filter.Eq(x => x.Id, updatedUser.Id);
             await _users.ReplaceOneAsync(filter, updatedUser);
-            return Ok();
+            return Ok(updatedUser);
         }
 
         [HttpDelete("{id}")]
@@ -52,5 +52,22 @@ namespace EcommerceWebAPI.Controllers
             await _users.DeleteOneAsync(filter);
             return Ok();
         }
+
+        [HttpGet("pending")]
+        public async Task<IEnumerable<User>> GetPendingUsers()
+        {
+            var filter = Builders<User>.Filter.Eq(x => x.IsActive, false);
+            return await _users.Find(filter).ToListAsync();
+        }
+
+        [HttpPut("approve/{id}")]
+        public async Task<ActionResult> ApproveUser(string id)
+        {
+            var filter = Builders<User>.Filter.Eq(x => x.Id, id);
+            var update = Builders<User>.Update.Set(x => x.IsActive, true);
+            await _users.UpdateOneAsync(filter, update);
+            return Ok();
+        }
+
     }
 }
