@@ -12,11 +12,11 @@ namespace EcommerceWebAPI.Models
         [BsonElement("email")]
         public required string Email { get; set; }
 
-        [BsonElement("username")]
-        public required string UserName { get; set; }
-
         [BsonElement("password")]
         public required string Password { get; set; }
+
+        [BsonElement("username")]
+        public required string? Username { get; set; }
 
         [BsonElement("role")]
         public required string Role { get; set; } // Administrator, Vendor, CSR

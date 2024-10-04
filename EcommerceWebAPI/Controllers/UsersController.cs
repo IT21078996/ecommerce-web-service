@@ -42,7 +42,7 @@ namespace EcommerceWebAPI.Controllers
         {
             var filter = Builders<User>.Filter.Eq(x => x.Id, updatedUser.Id);
             await _users.ReplaceOneAsync(filter, updatedUser);
-            return Ok();
+            return Ok(updatedUser);
         }
 
         [HttpDelete("{id}")]
