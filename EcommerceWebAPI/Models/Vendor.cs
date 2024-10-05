@@ -21,6 +21,9 @@ namespace EcommerceWebAPI.Models
         [BsonElement("rating")]
         public double Rating { get; set; }
 
+        [BsonElement("reviewCount")]
+        public int ReviewCount { get; set; }
+
         [BsonElement("address")]
         public string? Address { get; set; }
 
