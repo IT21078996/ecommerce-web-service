@@ -34,7 +34,7 @@ namespace EcommerceWebAPI.Models
         [BsonElement("rating")]
         public double Rating { get; set; }
 
-        [BsonElement("imageUrl")]
-        public string? ImageUrl { get; set; }
+        [BsonElement("base64Image")]
+        public string? Base64Image { get; set; }
     }
 }
