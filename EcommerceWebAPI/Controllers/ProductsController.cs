@@ -52,5 +52,39 @@ namespace EcommerceWebAPI.Controllers
             await _products.DeleteOneAsync(filter);
             return Ok();
         }
+
+        // Activate a product
+        [HttpPatch("activate/{id}")]
+        public async Task<IActionResult> ActivateProduct(string id)
+        {
+            var filter = Builders<Product>.Filter.Eq(p => p.Id, id);
+            var update = Builders<Product>.Update.Set(p => p.IsActive, true);
+
+            var result = await _products.UpdateOneAsync(filter, update);
+
+            if (result.ModifiedCount > 0)
+            {
+                return Ok(new { message = "Product activated successfully." });
+            }
+
+            return NotFound(new { message = "Product not found." });
+        }
+
+        // Deactivate a product
+        [HttpPatch("deactivate/{id}")]
+        public async Task<IActionResult> DeactivateProduct(string id)
+        {
+            var filter = Builders<Product>.Filter.Eq(p => p.Id, id);
+            var update = Builders<Product>.Update.Set(p => p.IsActive, false);
+
+            var result = await _products.UpdateOneAsync(filter, update);
+
+            if (result.ModifiedCount > 0)
+            {
+                return Ok(new { message = "Product deactivated successfully." });
+            }
+
+            return NotFound(new { message = "Product not found." });
+        }
     }
 }
