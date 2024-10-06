@@ -69,5 +69,43 @@ namespace EcommerceWebAPI.Controllers
             return Ok();
         }
 
+        [HttpPut("updateProfile/{id}")]
+        public async Task<ActionResult> UpdateUserProfile(string id, [FromBody] User updatedUser)
+        {
+            var filter = Builders<User>.Filter.Eq(x => x.Id, id);
+            var existingUser = await _users.Find(filter).FirstOrDefaultAsync();
+
+            if (existingUser == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var update = Builders<User>.Update
+                .Set(x => x.Username, updatedUser.Username);
+
+            if (updatedUser.ProfilePictureBase64 != null)
+            {
+                update = update.Set(x => x.ProfilePictureBase64, updatedUser.ProfilePictureBase64);
+            }
+
+            if (updatedUser.ContactNumber != null)
+            {
+                update = update.Set(x => x.ContactNumber, updatedUser.ContactNumber);
+            }
+
+            await _users.UpdateOneAsync(filter, update);
+            return Ok();
+        }
+
+
+
+
+        [HttpGet("email/{email}")]
+        public async Task<ActionResult<User?>> GetUserByEmail(string email)
+        {
+            var filter = Builders<User>.Filter.Eq(x => x.Email, email);
+            var user = _users.Find(filter).FirstOrDefault();
+            return user is not null ? Ok(user) : NotFound();
+        }
     }
 }

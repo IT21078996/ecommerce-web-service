@@ -23,5 +23,11 @@ namespace EcommerceWebAPI.Models
 
         [BsonElement("isActive")]
         public bool IsActive { get; set; }
+
+        [BsonElement("profilePictureBase64")]
+        public string? ProfilePictureBase64 { get; set; }
+
+        [BsonElement("contactNumber")]
+        public string? ContactNumber { get; set; }
     }
 }

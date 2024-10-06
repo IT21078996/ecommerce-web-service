@@ -33,10 +33,16 @@ namespace EcommerceWebAPI.Controllers
                 return Unauthorized("Invalid credentials");
             }
 
+            if (!user.IsActive)
+            {
+                return Unauthorized("Account is not active. Please contact support.");
+            }
+
             // Generate JWT Token
             var token = GenerateJwtToken(user);
             return Ok(new { token });
         }
+
 
         private string GenerateJwtToken(User user)
         {
