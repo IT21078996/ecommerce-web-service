@@ -61,10 +61,10 @@ namespace EcommerceWebAPI.Controllers
             order.Status = request.Status;
 
             // Handle multi-vendor readiness check for "Partially Ready" or "ReadyForShipment"
-            if (request.Status == OrderStatus.ReadyForShipment && order.Products.Any(p => !p.IsReady))
-            {
-                order.Status = OrderStatus.PartiallyReady;
-            }
+            //if (request.Status == OrderStatus.ReadyForShipment && order.Products.Any(p => !p.IsReady))
+            //{
+            //    order.Status = OrderStatus.PartiallyReady;
+            //}
 
             await _orders.ReplaceOneAsync(o => o.Id == id, order);
 
@@ -95,6 +95,21 @@ namespace EcommerceWebAPI.Controllers
             await _orders.DeleteOneAsync(filter);
             return Ok();
         }
+
+        [HttpGet("pendingOrders/{productId}")]
+        public async Task<ActionResult<bool>> CheckPendingOrdersForProduct(string productId)
+        {
+            // Define filter to check for orders containing the product with the specified ID and a pending status
+            var filter = Builders<Order>.Filter.And(
+                Builders<Order>.Filter.ElemMatch(o => o.Products, p => p.ProductId == productId),
+                Builders<Order>.Filter.Eq(o => o.Status, OrderStatus.Pending)
+            );
+
+            var hasPendingOrders = await _orders.Find(filter).AnyAsync();
+
+            return Ok(hasPendingOrders);
+        }
+
     }
 
     // Request model for updating order status
