@@ -2,6 +2,7 @@
 using MongoDB.Driver;
 using EcommerceWebAPI.Models;
 using EcommerceWebAPI.Data;
+using MongoDB.Bson;
 
 namespace EcommerceWebAPI.Controllers
 {
@@ -52,5 +53,16 @@ namespace EcommerceWebAPI.Controllers
             await _orders.DeleteOneAsync(filter);
             return Ok();
         }
+
+        [HttpGet("user/{customerId}")]
+        public async Task<IEnumerable<Order>> GetOrdersByCustomerId(string customerId)
+        {
+            var objectId = new ObjectId(customerId);  
+            var filter = Builders<Order>.Filter.Eq("customerId", objectId); 
+            return await _orders.Find(filter).ToListAsync();
+        }
+
+
+
     }
 }
