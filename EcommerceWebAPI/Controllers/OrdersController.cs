@@ -16,20 +16,23 @@ namespace EcommerceWebAPI.Controllers
             _orders = dbContext.GetCollection<Order>("orders");
         }
 
+        // Get all orders
         [HttpGet]
         public async Task<IEnumerable<Order>> GetAllOrders()
         {
             return await _orders.Find(FilterDefinition<Order>.Empty).ToListAsync();
         }
 
+        // Get order by ID
         [HttpGet("{id}")]
-        public async Task<ActionResult<Inventory?>> GetOrderById(string id)
+        public async Task<ActionResult<Order?>> GetOrderById(string id)
         {
             var filter = Builders<Order>.Filter.Eq(x => x.Id, id);
             var order = _orders.Find(filter).FirstOrDefault();
             return order is not null ? Ok(order) : NotFound();
         }
 
+        // Create a new order
         [HttpPost]
         public async Task<ActionResult> CreateOrder(Order newOrder)
         {
@@ -37,12 +40,52 @@ namespace EcommerceWebAPI.Controllers
             return CreatedAtAction(nameof(GetOrderById), new { id = newOrder.Id }, newOrder);
         }
 
+        // Update order
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateOrder(Order updatedOrder)
         {
             var filter = Builders<Order>.Filter.Eq(x => x.Id, updatedOrder.Id);
             await _orders.ReplaceOneAsync(filter, updatedOrder);
             return Ok(updatedOrder);
+        }
+
+        // Update order status
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] UpdateOrderStatusRequest request)
+        {
+            var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
+            if (order == null)
+                return NotFound(new { message = "Order not found" });
+
+            // Update order status
+            order.Status = request.Status;
+
+            // Handle multi-vendor readiness check for "Partially Ready" or "ReadyForShipment"
+            if (request.Status == OrderStatus.ReadyForShipment && order.Products.Any(p => !p.IsReady))
+            {
+                order.Status = OrderStatus.PartiallyReady;
+            }
+
+            await _orders.ReplaceOneAsync(o => o.Id == id, order);
+
+            return Ok(new { message = "Order status updated", status = order.Status });
+        }
+
+        // Cancel an order with a cancellation note
+        [HttpPatch("{id}/cancel")]
+        public async Task<IActionResult> CancelOrder(string id, [FromBody] CancelOrderRequest request)
+        {
+            var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
+            if (order == null)
+                return NotFound(new { message = "Order not found" });
+
+            // Update order status to Cancelled and add cancellation note
+            order.Status = OrderStatus.Cancelled;
+            order.CancellationNote = request.CancellationNote;
+
+            await _orders.ReplaceOneAsync(o => o.Id == id, order);
+
+            return Ok(new { message = "Order cancelled", order });
         }
 
         [HttpDelete("{id}")]
@@ -52,5 +95,17 @@ namespace EcommerceWebAPI.Controllers
             await _orders.DeleteOneAsync(filter);
             return Ok();
         }
+    }
+
+    // Request model for updating order status
+    public class UpdateOrderStatusRequest
+    {
+        public OrderStatus Status { get; set; }
+    }
+
+    // Request model for cancelling an order
+    public class CancelOrderRequest
+    {
+        public string? CancellationNote { get; set; }
     }
 }
