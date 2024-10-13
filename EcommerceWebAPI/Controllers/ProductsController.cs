@@ -86,5 +86,20 @@ namespace EcommerceWebAPI.Controllers
 
             return NotFound(new { message = "Product not found." });
         }
+
+        // Get products by VendorId
+        [HttpGet("vendor/{vendorId}")]
+        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByVendorId(string vendorId)
+        {
+            var filter = Builders<Product>.Filter.Eq(p => p.VendorId, vendorId);
+            var products = await _products.Find(filter).ToListAsync();
+
+            if (products.Count > 0)
+            {
+                return Ok(products);
+            }
+
+            return NotFound(new { message = "No products found for this vendor." });
+        }
     }
 }

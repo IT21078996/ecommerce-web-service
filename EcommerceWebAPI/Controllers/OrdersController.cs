@@ -96,6 +96,22 @@ namespace EcommerceWebAPI.Controllers
             return Ok();
         }
 
+        [HttpGet("vendor/{vendorId}")]
+        public async Task<ActionResult<IEnumerable<Order>>> GetOrdersByVendor(string vendorId)
+        {
+            // Filter orders that contain at least one product from the specified vendor
+            var filter = Builders<Order>.Filter.ElemMatch(o => o.Products, p => p.VendorId == vendorId);
+
+            var orders = await _orders.Find(filter).ToListAsync();
+
+            if (orders.Count == 0)
+            {
+                return NotFound(new { message = "No orders found for this vendor" });
+            }
+
+            return Ok(orders);
+        }
+
         [HttpGet("pendingOrders/{productId}")]
         public async Task<ActionResult<bool>> CheckPendingOrdersForProduct(string productId)
         {
