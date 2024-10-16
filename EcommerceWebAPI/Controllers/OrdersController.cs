@@ -10,10 +10,12 @@ namespace EcommerceWebAPI.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IMongoCollection<Order> _orders;
+        private readonly IMongoCollection<Product> _products;
 
         public OrderController(MongoDBContext dbContext)
         {
             _orders = dbContext.GetCollection<Order>("orders");
+            _products = dbContext.GetCollection<Product>("products");
         }
 
         // Get all orders
@@ -36,8 +38,50 @@ namespace EcommerceWebAPI.Controllers
         [HttpPost]
         public async Task<ActionResult> CreateOrder(Order newOrder)
         {
-            await _orders.InsertOneAsync(newOrder);
-            return CreatedAtAction(nameof(GetOrderById), new { id = newOrder.Id }, newOrder);
+            // Begin transaction or lock resources if necessary for consistency
+            var session = await _orders.Database.Client.StartSessionAsync();
+            session.StartTransaction();
+
+            try
+            {
+                // Loop through each product in the order and reduce the stock
+                foreach (var orderProduct in newOrder.Products)
+                {
+                    var filter = Builders<Product>.Filter.Eq(p => p.Id, orderProduct.ProductId);
+                    var product = await _products.Find(filter).FirstOrDefaultAsync();
+
+                    if (product == null)
+                    {
+                        await session.AbortTransactionAsync();
+                        return NotFound(new { message = $"Item {orderProduct.ProductName} not found" });
+                    }
+
+                    if (product.Stock < orderProduct.Quantity)
+                    {
+                        await session.AbortTransactionAsync();
+                        return BadRequest(new { message = $"Not enough stock for item {product.ProductName}" });
+                    }
+
+                    product.Stock -= orderProduct.Quantity;
+
+                    await _products.ReplaceOneAsync(filter, product);
+                }
+
+                await _orders.InsertOneAsync(newOrder);
+
+                await session.CommitTransactionAsync();
+
+                return CreatedAtAction(nameof(GetOrderById), new { id = newOrder.Id }, newOrder);
+            }
+            catch (Exception ex)
+            {
+                await session.AbortTransactionAsync();
+                return StatusCode(500, new { message = "An error occurred while processing the order", error = ex.Message });
+            }
+            finally
+            {
+                session.Dispose();
+            }
         }
 
         // Update order
@@ -53,40 +97,126 @@ namespace EcommerceWebAPI.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] UpdateOrderStatusRequest request)
         {
-            var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
-            if (order == null)
-                return NotFound(new { message = "Order not found" });
+            var session = await _orders.Database.Client.StartSessionAsync();
+            session.StartTransaction();
 
-            // Update order status
-            order.Status = request.Status;
+            try
+            {
+                var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
+                if (order == null)
+                {
+                    await session.AbortTransactionAsync();
+                    return NotFound(new { message = "Order not found" });
+                }
 
-            // Handle multi-vendor readiness check for "Partially Ready" or "ReadyForShipment"
-            //if (request.Status == OrderStatus.ReadyForShipment && order.Products.Any(p => !p.IsReady))
-            //{
-            //    order.Status = OrderStatus.PartiallyReady;
-            //}
+                // Set status, overriding readiness checks
+                if (request.Status == OrderStatus.OrderDispatched || request.Status == OrderStatus.Delivered)
+                {
+                    order.Status = request.Status;
+                }
+                else
+                {
+                    // Check if all products for the specific vendor are marked as ready
+                    var vendorProductsReady = true;
+                    foreach (var product in order.Products.Where(p => p.VendorId == request.VendorId))
+                    {
+                        if (!product.IsReady)
+                        {
+                            vendorProductsReady = false;
+                            break;
+                        }
+                    }
 
-            await _orders.ReplaceOneAsync(o => o.Id == id, order);
+                    // Update order status to 'Partially Ready' if one vendor has completed their products
+                    if (vendorProductsReady && order.Status == OrderStatus.Processing)
+                    {
+                        order.Status = OrderStatus.PartiallyReady;
+                    }
 
-            return Ok(new { message = "Order status updated", status = order.Status });
+                    // Check if all products from all vendors are marked as ready
+                    var allProductsReady = order.Products.All(p => p.IsReady);
+                    if (allProductsReady && order.Status != OrderStatus.OrderDispatched)
+                    {
+                        order.Status = OrderStatus.ReadyForShipment;
+                    }
+                }
+
+                await _orders.ReplaceOneAsync(o => o.Id == id, order);
+
+                await session.CommitTransactionAsync();
+
+                return Ok(new { message = "Order status updated", status = order.Status });
+            }
+            catch (Exception ex)
+            {
+                await session.AbortTransactionAsync();
+                return StatusCode(500, new { message = "An error occurred while updating the order status", error = ex.Message });
+            }
+            finally
+            {
+                session.Dispose();
+            }
         }
 
         // Cancel an order with a cancellation note
         [HttpPatch("{id}/cancel")]
         public async Task<IActionResult> CancelOrder(string id, [FromBody] CancelOrderRequest request)
         {
-            var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
-            if (order == null)
-                return NotFound(new { message = "Order not found" });
+            var session = await _orders.Database.Client.StartSessionAsync();
+            session.StartTransaction();
 
-            // Update order status to Cancelled and add cancellation note
-            order.Status = OrderStatus.Cancelled;
-            order.CancellationNote = request.CancellationNote;
+            try
+            {
+                var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
+                if (order == null)
+                {
+                    await session.AbortTransactionAsync();
+                    return NotFound(new { message = "Order not found" });
+                }
 
-            await _orders.ReplaceOneAsync(o => o.Id == id, order);
+                if (order.Status == OrderStatus.Cancelled)
+                {
+                    await session.AbortTransactionAsync();
+                    return BadRequest(new { message = "Order is already cancelled" });
+                }
 
-            return Ok(new { message = "Order cancelled", order });
+                order.Status = OrderStatus.Cancelled;
+                order.CancellationNote = request.CancellationNote;
+
+                // Add quantities of the products back to the inventory
+                foreach (var orderProduct in order.Products)
+                {
+                    var filter = Builders<Product>.Filter.Eq(p => p.Id, orderProduct.ProductId);
+                    var product = await _products.Find(filter).FirstOrDefaultAsync();
+
+                    if (product == null)
+                    {
+                        await session.AbortTransactionAsync();
+                        return NotFound(new { message = $"Product {orderProduct.ProductName} not found" });
+                    }
+
+                    product.Stock += orderProduct.Quantity;
+
+                    await _products.ReplaceOneAsync(filter, product);
+                }
+
+                await _orders.ReplaceOneAsync(o => o.Id == id, order);
+
+                await session.CommitTransactionAsync();
+
+                return Ok(new { message = "Order cancelled and inventory updated", order });
+            }
+            catch (Exception ex)
+            {
+                await session.AbortTransactionAsync();
+                return StatusCode(500, new { message = "An error occurred while cancelling the order", error = ex.Message });
+            }
+            finally
+            {
+                session.Dispose();
+            }
         }
+
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteOrder(string id)
@@ -132,6 +262,7 @@ namespace EcommerceWebAPI.Controllers
     public class UpdateOrderStatusRequest
     {
         public OrderStatus Status { get; set; }
+        public string? VendorId { get; set; }
     }
 
     // Request model for cancelling an order
