@@ -33,10 +33,16 @@ namespace EcommerceWebAPI.Controllers
                 return Unauthorized("Invalid credentials");
             }
 
+            if (!user.IsActive)
+            {
+                return Unauthorized("Account is not active. Please contact support.");
+            }
+
             // Generate JWT Token
             var token = GenerateJwtToken(user);
             return Ok(new { token });
         }
+
 
         private string GenerateJwtToken(User user)
         {
@@ -44,7 +50,8 @@ namespace EcommerceWebAPI.Controllers
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("id", user.Id)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
