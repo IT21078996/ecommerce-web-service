@@ -23,7 +23,15 @@ namespace EcommerceWebAPI.Models
         [BsonElement("RestockQuantity")]
         public int RestockQuantity { get; set; }
 
+        [BsonElement("ProductName")]
+        public string? ProductName { get; set; }
+
         [BsonElement("IsLowStock")]
         public bool IsLowStock { get; set; }
+
+        [BsonElement("vendorId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? VendorId { get; set; }
+
     }
 }

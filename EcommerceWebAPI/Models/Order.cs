@@ -10,11 +10,10 @@ namespace EcommerceWebAPI.Models
         Pending,
         Processing,
         ReadyForShipment,
-        PartiallyReady,
         OrderDispatched,
-        PartiallyDelivered,
         Delivered,
-        Cancelled
+        Cancelled,
+        PartiallyReady
     }
 
     public class Order
